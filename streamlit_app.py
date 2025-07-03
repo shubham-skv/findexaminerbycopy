@@ -9,7 +9,7 @@ st.title("BTE Exam Marks Lookup BY SKV")
 st.markdown("Enter the Bar Code below to retrieve exam marks details.")
 
 # Input field for Bar_Code
-bar_code_input = st.text_input("Enter Bar Code", help="e.g., 4102016023")
+bar_code_input = st.text_input("Enter Copy Number ", help="e.g., 4102016023")
 
 # Button to trigger the request
 if st.button("Get Marks Details"):
