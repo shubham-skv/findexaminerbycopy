@@ -3,9 +3,9 @@ import requests
 import json
 
 # Set the page configuration
-st.set_page_config(page_title="BTE Exam Marks Lookup", layout="centered")
+st.set_page_config(page_title="BTE Exam Marks Lookup ", layout="centered")
 
-st.title("BTE Exam Marks Lookup")
+st.title("BTE Exam Marks Lookup BY SKV")
 st.markdown("Enter the Bar Code below to retrieve exam marks details.")
 
 # Input field for Bar_Code
