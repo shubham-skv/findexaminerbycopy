@@ -1,151 +1,67 @@
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
+import requests
+import json
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+# Set the page configuration
+st.set_page_config(page_title="BTE Exam Marks Lookup", layout="centered")
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+st.title("BTE Exam Marks Lookup")
+st.markdown("Enter the Bar Code below to retrieve exam marks details.")
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Input field for Bar_Code
+bar_code_input = st.text_input("Enter Bar Code", help="e.g., 4102016023")
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# Button to trigger the request
+if st.button("Get Marks Details"):
+    if bar_code_input:
+        # Define the API endpoint
+        url = "https://bteexam.com/Admin/Copy_Marks"
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+        # Define the request body
+        payload = {
+            "Checked_Type": "EVAL",
+            "Eval_Session": "MAY 2025",
+            "Bar_Code": bar_code_input
+        }
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+        st.info("Sending request... Please wait.")
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+        try:
+            # Send the POST request
+            # Using json=payload automatically sets Content-Type to application/json
+            response = requests.post(url, json=payload)
+            response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+            # Parse the JSON response
+            data = response.json()
 
-    return gdp_df
+            if data:
+                st.success("Details Retrieved Successfully!")
+                # Display the data in a user-friendly format
+                for item in data:
+                    st.subheader(f"Details for Bar Code: {item.get('Bar_Code', 'N/A')}")
+                    st.write(f"**Center Name:** {item.get('Center_Name', 'N/A')}")
+                    st.write(f"**Faculty Name:** {item.get('Name', 'N/A')}")
+                    st.write(f"**Contact No.:** {item.get('Contact_No', 'N/A')}")
+                    st.write(f"**Catch No.:** {item.get('Catch_No', 'N/A')}")
+                    st.write(f"**Paper Name:** {item.get('Paper_Name', 'N/A')}")
+                    st.write(f"**Evaluation Session:** {item.get('Eval_Session', 'N/A')}")
+                    st.write(f"**Checked Type:** {item.get('Checked_Type', 'N/A')}")
+                    st.write(f"**Checked:** {'Yes' if item.get('Checked') else 'No'}")
+                    st.write(f"**Total Marks:** {item.get('Total_Marks', 'N/A')}")
+                    st.write(f"**Obtained Marks:** {item.get('Obt_Marks', 'N/A')}")
+                    st.markdown("---") # Separator for multiple results
+            else:
+                st.warning("No data found for the provided Bar Code.")
 
-gdp_df = get_gdp_data()
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error connecting to the API: {e}")
+        except json.JSONDecodeError:
+            st.error("Error decoding JSON response from the API. The response might not be valid JSON.")
+        except Exception as e:
+            st.error(f"An unexpected error occurred: {e}")
+    else:
+        st.warning("Please enter a Bar Code to proceed.")
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+st.markdown("---")
+st.caption("Developed with Streamlit and Python.")
