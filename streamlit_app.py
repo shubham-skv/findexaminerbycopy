@@ -58,24 +58,29 @@ if st.button("Get Marks Details"):
         status_placeholder = st.empty()
         status_placeholder.info(f"Sending requests for {len(bar_codes)} Bar Codes... Please wait.")
 
-        results = []
+        # Dictionary to store futures, keyed by the original barcode order
+        future_map = {}
+        # List to store results in the order of input barcodes
+        ordered_results = []
         errors = []
 
         # Use ThreadPoolExecutor for concurrent requests
         # Max workers can be adjusted based on network conditions and API limits
         with ThreadPoolExecutor(max_workers=5) as executor:
-            # Submit tasks for each barcode
-            future_to_barcode = {executor.submit(fetch_marks, bc, url): bc for bc in bar_codes}
+            # Submit tasks for each barcode and store the future
+            for bc in bar_codes:
+                future_map[bc] = executor.submit(fetch_marks, bc, url)
 
-            for future in as_completed(future_to_barcode):
-                bar_code_processed = future_to_barcode[future]
+            # Iterate through the original bar_codes list to retrieve results in order
+            for bar_code_to_process in bar_codes:
+                future = future_map[bar_code_to_process]
                 try:
-                    bar_code, data, error = future.result()
+                    bar_code, data, error = future.result() # Get the result from the completed future
                     if error:
                         errors.append(error)
                     elif data:
                         for item in data:
-                            results.append({
+                            ordered_results.append({
                                 "Bar Code": item.get('Bar_Code', 'N/A'),
                                 "Center Name": item.get('Center_Name', 'N/A'),
                                 "Faculty Name": item.get('Name', 'N/A'),
@@ -89,15 +94,16 @@ if st.button("Get Marks Details"):
                                 "Obtained Marks": item.get('Obt_Marks', 'N/A')
                             })
                 except Exception as exc:
-                    errors.append(f"An unexpected error occurred while processing {bar_code_processed}: {exc}")
+                    errors.append(f"An unexpected error occurred while processing {bar_code_to_process}: {exc}")
 
         # Clear the status message placeholder
         status_placeholder.empty()
 
-        if results:
+        if ordered_results:
             st.success("Details Retrieved Successfully for the entered Bar Codes!")
-            df = pd.DataFrame(results)
-            st.dataframe(df)
+            df = pd.DataFrame(ordered_results)
+            # Display the DataFrame with a specified height
+            st.dataframe(df, height=600) # Increased height for the table
         else:
             st.warning("No data could be retrieved for any of the provided Bar Codes.")
 
