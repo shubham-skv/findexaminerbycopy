@@ -52,7 +52,8 @@ if st.button("Get Marks Details"):
             st.warning("No valid Bar Codes entered. Please enter at least one.")
             st.stop()
 
-        url = "https://bteexam.com/Admin/Copy_Marks"
+        #url = "https://bteexam.com/Admin/Copy_Marks"
+        url = "https://bteupexam.co.in/Admin/Copy_Marks"
 
         # Use a placeholder for the status message
         status_placeholder = st.empty()
